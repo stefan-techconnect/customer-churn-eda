@@ -1,0 +1,8 @@
+streamlit>=1.40
+dash>=2.17
+plotly>=5.22
+pandas>=2.2
+numpy>=1.26
+matplotlib>=3.8
+scikit-learn==1.9.1
+joblib>=1.4
