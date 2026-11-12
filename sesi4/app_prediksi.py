@@ -36,7 +36,10 @@ st.markdown(
 STATUS = {"Bertahan": "#2a78d6", "Churn": "#eb6834"}
 KATEGORI = ["#2a78d6", "#1baf7a", "#eda100", "#4a3aa7", "#e87ba4"]
 KONTRAK = ["Bulanan", "Tahunan", "Dua Tahun"]
-BAGIAN = ["🥧 Komposisi", "📊 Perbandingan", "📈 Distribusi", "⏱️ Tren", "🔗 Hubungan", "📋 Data"]
+EDA_BAGIAN = ["🥧 Komposisi", "📊 Perbandingan", "📈 Distribusi", "⏱️ Tren", "🔗 Hubungan", "📋 Data"]
+PRED_SATU = "👤 Prediksi satu pelanggan"
+PRED_BATCH = "📂 Prediksi batch (CSV)"
+BAGIAN = EDA_BAGIAN + [PRED_SATU, PRED_BATCH]
 
 # 1) LOAD MODEL — sekali saja, disimpan di cache
 @st.cache_resource
@@ -74,11 +77,11 @@ threshold = st.sidebar.slider(
 )
 meta = dict(base_meta)
 meta["decision_threshold"] = float(threshold)
-st.sidebar.caption("Mengubah threshold mengubah jumlah Prediksi churn di tab batch.")
+st.sidebar.caption("Mengubah threshold mengubah jumlah Prediksi churn.")
 st.sidebar.divider()
 eda = load_eda()
-st.sidebar.markdown("### 🔎 EDA")
-st.sidebar.caption("Pilih bagian analisis")
+st.sidebar.markdown("### Navigasi")
+st.sidebar.caption("Pilih satu tampilan")
 bagian = st.sidebar.radio("Bagian", BAGIAN, label_visibility="collapsed")
 st.sidebar.caption(f"{len(eda):,} pelanggan · churn {eda.churn.mean():.1%}")
 
@@ -92,11 +95,8 @@ with st.expander("ℹ️ Informasi model final", expanded=False):
     st.caption("Model tidak dilatih ulang di aplikasi ini; aplikasi hanya melakukan inference.")
 
 COLOR = {"Rendah": "🟢", "Sedang": "🟡", "Tinggi": "🔴"}
-tab_eda, tab_single, tab_batch = st.tabs(
-    ["🔎 EDA", "👤 Prediksi satu pelanggan", "📂 Prediksi batch (CSV)"]
-)
 
-with tab_eda:
+if bagian in EDA_BAGIAN:
     k1, k2, k3, k4, k5 = st.columns(5)
     k1.metric("Total pelanggan", f"{len(eda):,}")
     k2.metric("Churn rate", f"{eda.churn.mean():.1%}")
@@ -210,7 +210,7 @@ with tab_eda:
         st.dataframe(eda.head(10), width="stretch", hide_index=True)
 
 # 2) PREDIKSI SATU PELANGGAN — input lewat form
-with tab_single:
+elif bagian == PRED_SATU:
     cats, rng = meta["categories"], meta["numeric_ranges"]
     with st.form("form_prediksi"):
         c1, c2, c3 = st.columns(3)
@@ -253,7 +253,7 @@ with tab_single:
                 st.success("Rekomendasi: pertahankan layanan standar.")
 
 # 3) PREDIKSI BATCH — upload CSV pelanggan baru
-with tab_batch:
+elif bagian == PRED_BATCH:
     st.caption("Untuk latihan validasi, unggah sesi4/contoh_kontrak_salah.csv (satu kontrak Mingguan).")
     up = st.file_uploader("Upload CSV pelanggan baru (format sama dengan data/new_customers.csv)",
                           type="csv")
