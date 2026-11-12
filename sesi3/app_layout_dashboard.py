@@ -20,17 +20,40 @@ df = load_data()
 
 # ---------- SIDEBAR: filter ----------
 st.sidebar.header("🎛️ Filter Data")
-region = st.sidebar.multiselect("Region", sorted(df["region"].unique()),
-                                default=sorted(df["region"].unique()))
-segment = st.sidebar.multiselect("Segmen", sorted(df["segment"].unique()),
-                                 default=sorted(df["segment"].unique()))
-kontrak = st.sidebar.radio("Jenis kontrak", ["Semua"] + sorted(df["contract_type"].unique()))
+if "reset" not in st.session_state:
+    st.session_state.reset = 0
+if st.sidebar.button("Reset filter"):
+    st.session_state.reset += 1
+
+opsi_region = sorted(df["region"].unique())
+opsi_segment = sorted(df["segment"].unique())
+opsi_layanan = sorted(df["internet_service"].unique())
+region = st.sidebar.multiselect(
+    "Region", opsi_region, default=opsi_region, key=f"region_{st.session_state.reset}"
+)
+segment = st.sidebar.multiselect(
+    "Segmen", opsi_segment, default=opsi_segment, key=f"segment_{st.session_state.reset}"
+)
+service = st.sidebar.multiselect(
+    "Layanan", opsi_layanan, default=opsi_layanan, key=f"service_{st.session_state.reset}"
+)
+kontrak = st.sidebar.radio(
+    "Jenis kontrak",
+    ["Semua"] + sorted(df["contract_type"].unique()),
+    key=f"kontrak_{st.session_state.reset}",
+)
 tmin, tmax = int(df.tenure_months.min()), int(df.tenure_months.max())
-tenure = st.sidebar.slider("Tenure (bulan)", tmin, tmax, (tmin, tmax))
-tgl = st.sidebar.date_input("Periode pendaftaran",
-                            (df.signup_date.min().date(), df.signup_date.max().date()))
+tenure = st.sidebar.slider(
+    "Tenure (bulan)", tmin, tmax, (tmin, tmax), key=f"tenure_{st.session_state.reset}"
+)
+tgl = st.sidebar.date_input(
+    "Periode pendaftaran",
+    (df.signup_date.min().date(), df.signup_date.max().date()),
+    key=f"tgl_{st.session_state.reset}",
+)
 
 mask = (df["region"].isin(region) & df["segment"].isin(segment)
+        & df["internet_service"].isin(service)
         & df["tenure_months"].between(*tenure))
 if kontrak != "Semua":
     mask &= df["contract_type"] == kontrak
@@ -48,14 +71,15 @@ if dff.empty:
     st.warning("Tidak ada data untuk kombinasi filter ini. Longgarkan filter di sidebar.")
     st.stop()
 
-# ---------- KPI CARDS (4 kolom) ----------
-k1, k2, k3, k4 = st.columns(4)
+# ---------- KPI CARDS (5 kolom) ----------
+k1, k2, k3, k4, k5 = st.columns(5)
 k1.metric("Total pelanggan", f"{len(dff):,}")
 k2.metric("Churn rate", f"{dff.churn.mean():.1%}",
           delta=f"{(dff.churn.mean() - df.churn.mean()) * 100:+.1f} pp vs total",
           delta_color="inverse")
 k3.metric("Rata-rata tagihan", rupiah(dff.monthly_charges.mean()))
 k4.metric("Rata-rata tenure", f"{dff.tenure_months.mean():.1f} bln")
+k5.metric("Keluhan ≥ 3", f"{(dff.num_complaints >= 3).mean():.1%}")
 
 # ---------- TABS ----------
 tab1, tab2, tab3 = st.tabs(["📈 Ringkasan", "🔍 Segmentasi", "📋 Data Detail"])
@@ -68,19 +92,30 @@ with tab1:
                   .rename("pelanggan").reset_index())
         fig_tren = px.line(tren, x="signup_date", y="pelanggan", markers=True,
                            title="Pelanggan baru per bulan", color_discrete_sequence=["#2a78d6"])
-        st.plotly_chart(fig_tren.update_layout(height=320, template="plotly_white"), width="stretch")
+        with st.container(border=True):
+            st.plotly_chart(fig_tren.update_layout(height=320, template="plotly_white"), width="stretch")
     with c2:
         fig_donut = px.pie(dff, names="segment", hole=0.55, title="Komposisi segmen",
                            color_discrete_sequence=["#2a78d6", "#1baf7a", "#eda100"])
         fig_donut.update_traces(textinfo="percent+label")
-        st.plotly_chart(fig_donut.update_layout(height=320, showlegend=False), width="stretch")
+        with st.container(border=True):
+            st.plotly_chart(fig_donut.update_layout(height=320, showlegend=False), width="stretch")
     ck = (dff.groupby("contract_type", as_index=False)["churn"].mean()
              .sort_values("churn", ascending=False))
     fig_bar = px.bar(ck, x="contract_type", y="churn", text_auto=".1%",
                      title="Churn rate per jenis kontrak", color_discrete_sequence=["#eb6834"])
     fig_bar.update_yaxes(tickformat=".0%", title="Churn rate")
-    st.plotly_chart(fig_bar.update_layout(height=300, template="plotly_white", xaxis_title=""),
-                    width="stretch")
+    with st.container(border=True):
+        st.plotly_chart(fig_bar.update_layout(height=300, template="plotly_white", xaxis_title=""),
+                        width="stretch")
+    q = (dff.assign(kuartal=dff.signup_date.dt.to_period("Q").astype(str))
+           .groupby("kuartal", as_index=False)["churn"].mean())
+    fig_q = px.line(q, x="kuartal", y="churn", markers=True,
+                    title="Churn rate per kuartal pendaftaran",
+                    color_discrete_sequence=["#eb6834"])
+    fig_q.update_yaxes(tickformat=".0%", title="Churn rate")
+    with st.container(border=True):
+        st.plotly_chart(fig_q.update_layout(height=320, template="plotly_white"), width="stretch")
 
 with tab2:
     pilih = st.selectbox("Segmentasi berdasarkan", ["region", "segment", "payment_method",
