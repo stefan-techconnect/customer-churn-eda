@@ -20,7 +20,15 @@ def get_model():
 def get_meta():
     return load_metadata()
 
-model, meta = get_model(), get_meta()
+model = get_model()
+base_meta = get_meta()
+threshold = st.sidebar.slider(
+    "Threshold keputusan", 0.3, 0.7, 0.5, 0.05,
+    help="Pelanggan diprediksi churn jika probabilitas ≥ threshold.",
+)
+meta = dict(base_meta)
+meta["decision_threshold"] = float(threshold)
+st.sidebar.caption("Mengubah threshold mengubah jumlah Prediksi churn di tab batch.")
 
 st.title("🤖 Prediksi Risiko Churn Pelanggan")
 with st.expander("ℹ️ Informasi model final", expanded=False):
@@ -78,6 +86,7 @@ with tab_single:
 
 # 3) PREDIKSI BATCH — upload CSV pelanggan baru
 with tab_batch:
+    st.caption("Untuk latihan validasi, unggah sesi4/contoh_kontrak_salah.csv (satu kontrak Mingguan).")
     up = st.file_uploader("Upload CSV pelanggan baru (format sama dengan data/new_customers.csv)",
                           type="csv")
     pakai_contoh = st.checkbox("Gunakan contoh data/new_customers.csv", value=up is None)
@@ -96,11 +105,13 @@ with tab_batch:
         st.stop()
 
     hasil = predict(model, data, meta)
-    k1, k2, k3, k4 = st.columns(4)
+    berisiko = hasil.loc[hasil.risk_category == "Tinggi", "monthly_charges"].sum()
+    k1, k2, k3, k4, k5 = st.columns(5)
     k1.metric("Pelanggan diproses", f"{len(hasil):,}")
-    k2.metric("Prediksi churn", f"{hasil.predicted_churn.sum():,}")
+    k2.metric("Prediksi churn", f"{int(hasil.predicted_churn.sum()):,}")
     k3.metric("Rata-rata probabilitas", f"{hasil.churn_probability.mean():.1%}")
     k4.metric("Risiko tinggi", f"{(hasil.risk_category == 'Tinggi').sum():,}")
+    k5.metric("Pendapatan berisiko", f"Rp{berisiko:,.0f}".replace(",", "."))
 
     RISK_COLOR = {"Rendah": "#1baf7a", "Sedang": "#eda100", "Tinggi": "#e34948"}
     a, b = st.columns(2)
@@ -115,6 +126,13 @@ with tab_batch:
     bar.update_yaxes(tickformat=".0%")
     b.plotly_chart(bar.update_layout(height=330, template="plotly_white", xaxis_title=""),
                    width="stretch")
+
+    st.markdown("**Jumlah pelanggan per region × kategori risiko**")
+    ringkas = pd.crosstab(hasil["region"], hasil["risk_category"])
+    for kolom in ("Rendah", "Sedang", "Tinggi"):
+        if kolom not in ringkas.columns:
+            ringkas[kolom] = 0
+    st.dataframe(ringkas[["Rendah", "Sedang", "Tinggi"]], width="stretch")
 
     risiko = st.multiselect("Tampilkan kategori risiko", ["Tinggi", "Sedang", "Rendah"],
                             default=["Tinggi"])

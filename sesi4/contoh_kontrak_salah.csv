@@ -1,0 +1,4 @@
+customer_id,region,segment,contract_type,payment_method,internet_service,tenure_months,monthly_charges,total_charges,num_complaints,support_calls
+VAL-0001,Jawa,Retail,Bulanan,Transfer Bank,Fiber,12,420000,5040000,1,2
+VAL-0002,Sumatera,UMKM,Tahunan,E-Wallet,DSL,24,310000,7440000,0,1
+VAL-0003,Kalimantan,Korporat,Mingguan,Kartu Kredit,Mobile Broadband,6,450000,2700000,3,4
