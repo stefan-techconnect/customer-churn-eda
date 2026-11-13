@@ -9,68 +9,96 @@ from dash.exceptions import PreventUpdate
 ROOT = Path(__file__).resolve().parents[1]
 df = pd.read_csv(ROOT / "data" / "customer_churn.csv", parse_dates=["signup_date"])
 df["status"] = df["churn"].map({0: "Bertahan", 1: "Churn"})
-WARNA = {"Bertahan": "#4C72B0", "Churn": "#C44E52"}
-KARTU = {"flex": 1, "padding": "14px", "borderRadius": "10px", "background": "#F4F6FA",
-         "textAlign": "center"}
+WARNA = {"Bertahan": "#60a5fa", "Churn": "#fb7185"}
 TABEL_COLS = ["customer_id", "region", "segment", "contract_type", "tenure_months",
               "monthly_charges", "num_complaints", "status"]
+TABEL_LABEL = {
+    "customer_id": "ID", "region": "Region", "segment": "Segmen",
+    "contract_type": "Kontrak", "tenure_months": "Tenure",
+    "monthly_charges": "Tagihan", "num_complaints": "Keluhan", "status": "Status",
+}
 
-app = Dash(__name__, title="Dash Callback")
-app.layout = html.Div(style={"maxWidth": "1200px", "margin": "auto", "fontFamily": "Arial"}, children=[
-    html.H1("Dash Callback System — Dashboard Churn"),
+app = Dash(
+    __name__,
+    title="Dash Callback",
+    external_scripts=["https://cdn.tailwindcss.com"],
+    assets_folder=str(Path(__file__).resolve().parent / "assets"),
+)
+app.layout = html.Div(className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100", children=[
+    html.Div(className="aurora pointer-events-none absolute inset-0"),
+    html.Div(className="relative mx-auto max-w-6xl px-4 py-8 sm:px-6", children=[
+        html.P("Sesi 7", className="mb-2 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300/80"),
+        html.H1("Dashboard Churn", className="gradient-text text-4xl font-semibold tracking-tight"),
+        html.P("Filter di kartu atas mengubah KPI, grafik, dan tabel sekaligus.",
+               className="mt-2 text-sm text-slate-300"),
 
-    # ---- Panel filter ----
-    html.Div(style={"display": "grid", "gridTemplateColumns": "1fr 1fr 1fr", "gap": "16px"}, children=[
-        html.Div([html.Label("Region"),
-                  dcc.Dropdown(id="dd-region", options=sorted(df.region.unique()), multi=True,
-                               placeholder="Semua region")]),
-        html.Div([html.Label("Segmen (opsi bergantung region)"),
-                  dcc.Dropdown(id="dd-segment", multi=True, placeholder="Semua segmen")]),
-        html.Div([html.Label("Jenis kontrak"),
-                  dcc.RadioItems(id="rd-kontrak", inline=True, value="Semua",
-                                 options=["Semua", "Bulanan", "Tahunan", "Dua Tahun"])]),
-    ]),
-    html.Div(style={"marginTop": "12px"}, children=[
-        html.Label("Layanan internet"),
-        dcc.Checklist(id="cl-service", options=sorted(df.internet_service.unique()),
-                      value=[], inline=True),
-    ]),
-    html.Div(style={"marginTop": "12px"}, children=[
-        html.Label("Tenure (bulan)"),
-        dcc.RangeSlider(id="rs-tenure", min=1, max=72, step=1, value=[1, 72],
-                        marks={i: str(i) for i in (1, 12, 24, 36, 48, 60, 72)}),
-    ]),
-    html.Div(style={"display": "flex", "gap": "8px", "alignItems": "center"}, children=[
-        html.Label("Minimal jumlah keluhan:"),
-        dcc.Input(id="in-keluhan", type="number", min=0, max=10, value=0, style={"width": "70px"}),
+        html.Div(className="spotlight mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl", children=[
+            html.Div(className="grid gap-4 md:grid-cols-3", children=[
+                html.Div([html.Label("Region", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
+                          dcc.Dropdown(id="dd-region", options=sorted(df.region.unique()), multi=True,
+                                       placeholder="Semua region")]),
+                html.Div([html.Label("Segmen", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
+                          dcc.Dropdown(id="dd-segment", multi=True, placeholder="Semua segmen")]),
+                html.Div([html.Label("Jenis kontrak", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
+                          dcc.RadioItems(id="rd-kontrak", inline=True, value="Semua",
+                                         options=["Semua", "Bulanan", "Tahunan", "Dua Tahun"],
+                                         className="text-sm text-slate-200")]),
+            ]),
+            html.Div(className="mt-4", children=[
+                html.Label("Layanan internet", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
+                dcc.Checklist(id="cl-service", options=sorted(df.internet_service.unique()),
+                              value=[], inline=True, className="text-sm text-slate-200"),
+            ]),
+            html.Div(className="mt-4", children=[
+                html.Label("Tenure (bulan)", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
+                dcc.RangeSlider(id="rs-tenure", min=1, max=72, step=1, value=[1, 72],
+                                marks={i: str(i) for i in (1, 12, 24, 48, 72)},
+                                tooltip={"placement": "bottom", "always_visible": False}),
+            ]),
+            html.Div(className="mt-4 flex flex-wrap items-center gap-3", children=[
+                html.Label("Minimal keluhan", className="text-sm text-slate-300"),
+                dcc.Input(id="in-keluhan", type="number", min=0, max=10, value=0,
+                          className="w-20 rounded-lg border border-white/10 bg-slate-900 px-2 py-1 text-white"),
+                html.Button("Terapkan", id="btn-terapkan", n_clicks=0,
+                            className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950"),
+                html.Button("Reset filter", id="btn-reset", n_clicks=0,
+                            className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-slate-200"),
+                html.Span(id="info-keluhan", className="text-sm text-slate-400"),
+            ]),
+        ]),
+        dcc.Store(id="store-keluhan", data=0),
+        dcc.Store(id="store-filter"),
 
-        html.Button("Terapkan", id="btn-terapkan", n_clicks=0),
-        html.Button("Reset filter", id="btn-reset", n_clicks=0),
-        html.Span(id="info-keluhan", style={"color": "#666"}),
-    ]),
-    dcc.Store(id="store-keluhan", data=0),
-    dcc.Store(id="store-filter"),
+        html.Div(id="kpi", className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4"),
 
-    # ---- KPI ----
-    html.Div(id="kpi", style={"display": "flex", "gap": "12px", "margin": "16px 0"}),
-
-    # ---- Charts ----
-    html.Div(style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "12px"}, children=[
-        dcc.Graph(id="g-bar"), dcc.Graph(id="g-scatter")]),
-    html.Div(style={"display": "grid", "gridTemplateColumns": "1.2fr 0.8fr", "gap": "12px"}, children=[
-        dcc.Graph(id="g-hist"),
-        html.Div(id="detail", style={"padding": "8px 4px"}),
+        html.Div(className="mt-4 grid gap-4 lg:grid-cols-2", children=[
+            html.Div(className="spotlight min-h-[440px] overflow-hidden rounded-3xl border border-white/10 bg-white/5",
+                     children=dcc.Graph(id="g-bar", style={"height": "440px"}, config={"displayModeBar": False})),
+            html.Div(className="spotlight min-h-[440px] overflow-hidden rounded-3xl border border-white/10 bg-white/5",
+                     children=dcc.Graph(id="g-scatter", style={"height": "440px"}, config={"displayModeBar": False})),
+            html.Div(className="spotlight min-h-[440px] overflow-hidden rounded-3xl border border-white/10 bg-white/5",
+                     children=dcc.Graph(id="g-hist", style={"height": "440px"}, config={"displayModeBar": False})),
+            html.Div(id="detail", className="spotlight flex min-h-[440px] items-center rounded-3xl border border-white/10 bg-white/5 p-6 text-sm text-slate-300"),
+        ]),
+        html.P("Klik batang region, klik satu titik scatter, atau seleksi beberapa titik untuk memfilter tabel.",
+               className="mt-3 text-sm text-slate-400"),
+        html.H2(id="judul-tabel", className="mt-6 text-lg font-semibold"),
+        html.Div(className="spotlight mt-3 overflow-x-auto rounded-3xl border border-white/10 bg-white/5 p-3", children=[
+            dash_table.DataTable(
+                id="tbl", page_size=10, sort_action="native",
+                columns=[{"name": TABEL_LABEL[c], "id": c} for c in TABEL_COLS],
+                style_table={"overflowX": "auto", "minWidth": "100%"},
+                style_cell={"padding": "10px 12px", "textAlign": "left", "minWidth": "110px",
+                            "fontFamily": "Segoe UI, sans-serif", "fontSize": "13px",
+                            "backgroundColor": "transparent", "color": "#e2e8f0",
+                            "border": "none", "borderBottom": "1px solid rgba(255,255,255,0.08)"},
+                style_header={"fontWeight": "600", "backgroundColor": "rgba(15,23,42,0.9)",
+                              "color": "#94a3b8", "border": "none"},
+                style_data_conditional=[{"if": {"filter_query": "{status} = 'Churn'"},
+                                         "backgroundColor": "rgba(251,113,133,0.16)"}],
+            ),
+        ]),
     ]),
-    html.P("Tip: klik batang region, klik titik scatter, atau seleksi beberapa titik (box/lasso) "
-           "untuk memfilter tabel.",
-           style={"color": "#666"}),
-    html.H3(id="judul-tabel"),
-    dash_table.DataTable(id="tbl", page_size=10, sort_action="native",
-                         columns=[{"name": c, "id": c} for c in TABEL_COLS],
-                         style_cell={"padding": "6px", "textAlign": "left"},
-                         style_header={"fontWeight": "bold", "background": "#E9EDF5"},
-                         style_data_conditional=[{"if": {"filter_query": "{status} = 'Churn'"},
-                                                  "backgroundColor": "#FBE9EA"}]),
 ])
 
 
@@ -121,10 +149,13 @@ def update_dashboard(region, segment, kontrak, tenure, min_keluhan, layanan):
     info = f"Filter keluhan aktif: ≥ {min_keluhan}"
     if d.empty:
         kosong = px.scatter(title="Tidak ada data untuk filter ini")
-        return [html.Div("Data kosong", style=KARTU)], kosong, kosong, kosong, info, []
+        return [html.Div("Data kosong", className="text-slate-300")], kosong, kosong, kosong, info, []
 
     def kartu(j, v):
-        return html.Div([html.Small(j), html.H2(v, style={"margin": "4px 0"})], style=KARTU)
+        return html.Div(className="spotlight rounded-2xl border border-white/10 bg-white/5 px-4 py-3", children=[
+            html.P(j, className="text-xs uppercase tracking-wide text-slate-400"),
+            html.P(v, className="mt-1 text-2xl font-semibold text-white"),
+        ])
     kpi = [kartu("Pelanggan", f"{len(d):,}"), kartu("Churn rate", f"{d.churn.mean():.1%}"),
            kartu("Rata-rata tagihan", f"Rp{d.monthly_charges.mean():,.0f}".replace(",", ".")),
 
@@ -134,15 +165,24 @@ def update_dashboard(region, segment, kontrak, tenure, min_keluhan, layanan):
     bar = px.bar(reg, x="region", y="churn", template="plotly_white", title="Churn rate per region",
                  labels={"churn": "Churn rate", "region": ""}, color_discrete_sequence=["#C44E52"])
     bar.update_yaxes(tickformat=".0%")
+    bar.update_layout(height=400, margin=dict(l=48, r=16, t=56, b=72))
     sc = px.scatter(d, x="tenure_months", y="monthly_charges", color="status", opacity=0.6,
                     color_discrete_map=WARNA, template="plotly_white", hover_name="customer_id",
                     custom_data=["customer_id"],
                     title="Tenure vs tagihan", labels={"tenure_months": "Tenure (bulan)",
                                                        "monthly_charges": "Tagihan (Rp)"})
+    sc.update_layout(height=400, margin=dict(l=56, r=16, t=56, b=56))
     hist = px.histogram(d, x="tenure_months", color="status", nbins=30, barmode="overlay",
                         opacity=0.7, color_discrete_map=WARNA, template="plotly_white",
                         title="Distribusi tenure (ikut filter)",
                         labels={"tenure_months": "Tenure (bulan)", "status": "Status"})
+    hist.update_layout(height=400, margin=dict(l=48, r=16, t=56, b=64), bargap=0.05)
+    for figur in (bar, sc, hist):
+        figur.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            font_color="#e2e8f0", title_font_color="#f8fafc",
+                            legend_bgcolor="rgba(0,0,0,0)")
+        figur.update_xaxes(gridcolor="rgba(255,255,255,0.08)")
+        figur.update_yaxes(gridcolor="rgba(255,255,255,0.08)")
     return kpi, bar, sc, hist, info, d[TABEL_COLS].to_dict("records")
 
 
@@ -172,7 +212,7 @@ def tampil_detail(click):
         raise PreventUpdate
     cid = click["points"][0]["customdata"][0]
     r = df.loc[df.customer_id == cid].iloc[0]
-    return html.Ul([
+    return html.Ul(className="space-y-2 text-base text-slate-100", children=[
         html.Li(f"ID: {r.customer_id}"),
         html.Li(f"Region: {r.region}"),
         html.Li(f"Kontrak: {r.contract_type}"),
