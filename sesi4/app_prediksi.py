@@ -3,31 +3,42 @@ import sys
 from pathlib import Path
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
+from sklearn.metrics import (accuracy_score, confusion_matrix, f1_score, precision_score,
+                             recall_score, roc_auc_score, roc_curve)
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))                      # agar folder utils bisa di-import
-from utils.model_utils import load_model, load_metadata, validate_input, predict
+from utils.model_utils import (load_model, load_metadata, load_registry, load_holdout,
+                               model_path, validate_input, predict)
 
 st.set_page_config(page_title="EDA & Prediksi Churn", page_icon="📊", layout="wide")
 
 st.markdown(
     """
     <style>
-    [data-testid="stSidebar"] [data-testid="stRadioGroup"] > div { margin-bottom: 0.2rem; }
-    [data-testid="stSidebar"] [data-testid="stRadioOption"] {
-        display: flex; align-items: center; width: 100%;
-        padding: 0.55rem 0.8rem; border-radius: 10px;
-        border-left: 3px solid transparent; cursor: pointer; background: transparent;
+    [class*="st-key-nav-"] button {
+        width: 100%;
+        justify-content: flex-start !important;
+        text-align: left !important;
+        background: transparent !important;
+        color: inherit !important;
+        border: 1px solid transparent !important;
+        border-left: 3px solid transparent !important;
+        border-radius: 10px !important;
+        box-shadow: none !important;
+        font-weight: 400 !important;
+        padding: 0.4rem 0.65rem 0.4rem 0.9rem !important;
     }
-    [data-testid="stSidebar"] [data-testid="stRadioOption"]:hover {
-        background: rgba(42, 120, 214, 0.12);
+    [class*="st-key-nav-"]:hover button {
+        background: rgba(42, 120, 214, 0.12) !important;
     }
-    [data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"] {
-        background: rgba(42, 120, 214, 0.22); border-left-color: #2a78d6; font-weight: 600;
+    [class*="st-key-nav-on-"] button {
+        background: rgba(42, 120, 214, 0.22) !important;
+        border-left-color: #2a78d6 !important;
+        font-weight: 600 !important;
     }
-    [data-testid="stSidebar"] [data-testid="stRadioOption"] > div > div:first-child { display: none; }
-    [data-testid="stSidebar"] [data-testid="stRadioOption"] p { margin: 0; line-height: 1.3; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -36,19 +47,39 @@ st.markdown(
 STATUS = {"Bertahan": "#2a78d6", "Churn": "#eb6834"}
 KATEGORI = ["#2a78d6", "#1baf7a", "#eda100", "#4a3aa7", "#e87ba4"]
 KONTRAK = ["Bulanan", "Tahunan", "Dua Tahun"]
-EDA_BAGIAN = ["🥧 Komposisi", "📊 Perbandingan", "📈 Distribusi", "⏱️ Tren", "🔗 Hubungan", "📋 Data"]
+EDA_BAGIAN = ["🥧 Komposisi", "📊 Perbandingan", "📈 Distribusi", "⏱️ Tren", "🔗 Hubungan"]
+PRED_BANDING = "🏆 Perbandingan model"
 PRED_SATU = "👤 Prediksi satu pelanggan"
 PRED_BATCH = "📂 Prediksi batch (CSV)"
-BAGIAN = EDA_BAGIAN + [PRED_SATU, PRED_BATCH]
+DATA = "📋 Data"
+PRED_BAGIAN = [PRED_BANDING, PRED_SATU, PRED_BATCH, DATA]
+METRIK = {"accuracy": "Accuracy", "precision": "Precision", "recall": "Recall",
+          "f1": "F1", "roc_auc": "ROC-AUC"}
 
-# 1) LOAD MODEL — sekali saja, disimpan di cache
+# 1) LOAD MODEL — tiap file model dimuat sekali saja, disimpan di cache (kunci = path)
 @st.cache_resource
-def get_model():
-    return load_model()
+def get_model(path):
+    return load_model(path)
 
 @st.cache_data
 def get_meta():
     return load_metadata()
+
+@st.cache_data
+def get_registry():
+    return load_registry()
+
+@st.cache_data
+def get_holdout():
+    return load_holdout()
+
+def metrik_holdout(y_true, proba, threshold):
+    """Metrik pada data uji untuk threshold tertentu (ROC-AUC tidak bergantung threshold)."""
+    pred = (proba >= threshold).astype(int)
+    return {"accuracy": accuracy_score(y_true, pred),
+            "precision": precision_score(y_true, pred, zero_division=0),
+            "recall": recall_score(y_true, pred), "f1": f1_score(y_true, pred),
+            "roc_auc": roc_auc_score(y_true, proba)}
 
 @st.cache_data
 def load_eda():
@@ -62,6 +93,14 @@ def load_eda():
     ).astype(str)
     return df
 
+def pilih_navigasi(label):
+    aktif = st.session_state.bagian == label
+    slug = "".join(ch.lower() if ch.isalnum() else "-" for ch in label)
+    slug = "-".join(part for part in slug.split("-") if part)
+    if st.sidebar.button(label, key=f"nav-{'on' if aktif else 'off'}-{slug}", width="stretch"):
+        st.session_state.bagian = label
+        st.rerun()
+
 def gaya(fig, tinggi=360):
     fig.update_layout(
         template="plotly_white", height=tinggi, margin=dict(l=10, r=10, t=50, b=10),
@@ -69,7 +108,15 @@ def gaya(fig, tinggi=360):
     )
     return fig
 
-model = get_model()
+registry = get_registry()
+MODELS = {m["key"]: m for m in registry["models"]}
+model_key = st.sidebar.selectbox(
+    "Model prediksi", list(MODELS),
+    format_func=lambda k: f"{MODELS[k]['name']} · AUC {MODELS[k]['holdout_metrics']['roc_auc']:.3f}",
+    help="Semua model memakai fitur & preprocessing yang sama; pilih untuk membandingkan hasil.",
+)
+aktif = MODELS[model_key]
+model = get_model(model_path(aktif))
 base_meta = get_meta()
 threshold = st.sidebar.slider(
     "Threshold keputusan", 0.3, 0.7, 0.5, 0.05,
@@ -77,26 +124,43 @@ threshold = st.sidebar.slider(
 )
 meta = dict(base_meta)
 meta["decision_threshold"] = float(threshold)
+meta.update(model_name=f"Customer Churn Classifier — {aktif['name']}",
+            algorithm=aktif["algorithm"], holdout_metrics=aktif["holdout_metrics"])
 st.sidebar.caption("Mengubah threshold mengubah jumlah Prediksi churn.")
 st.sidebar.divider()
 eda = load_eda()
-st.sidebar.markdown("### Navigasi")
-st.sidebar.caption("Pilih satu tampilan")
-bagian = st.sidebar.radio("Bagian", BAGIAN, label_visibility="collapsed")
+if "bagian" not in st.session_state:
+    st.session_state.bagian = EDA_BAGIAN[0]
+st.sidebar.markdown("**EDA**")
+for item in EDA_BAGIAN:
+    pilih_navigasi(item)
+st.sidebar.markdown("**Prediction**")
+for item in PRED_BAGIAN:
+    pilih_navigasi(item)
+bagian = st.session_state.bagian
 st.sidebar.caption(f"{len(eda):,} pelanggan · churn {eda.churn.mean():.1%}")
 
 st.title("📊 EDA & Prediksi Risiko Churn")
 st.caption("Eksplorasi customer_churn.csv, lalu inference model final pada pelanggan baru.")
-with st.expander("ℹ️ Informasi model final", expanded=False):
+with st.expander(f"ℹ️ Model aktif: {aktif['name']}", expanded=False):
     st.write(f"**{meta['model_name']}** · versi {meta['model_version']} · {meta['algorithm']}")
+    st.caption(aktif["description"])
+    kolom_metrik = st.columns(len(METRIK) + 1)
+    for kol, (k, label) in zip(kolom_metrik, METRIK.items()):
+        kol.metric(label, f"{aktif['holdout_metrics'][k]:.3f}")
+    kolom_metrik[-1].metric("CV ROC-AUC", f"{aktif['cv_roc_auc']['mean']:.3f}",
+                            help=f"5-fold, ± {aktif['cv_roc_auc']['std']:.3f}")
+    st.caption(f"Metrik hasil training pada data uji {registry['split']['n_test']} pelanggan "
+               f"(threshold {registry['metrics_threshold']}).")
     st.write("Fitur input:", ", ".join(meta["feature_order"]))
     st.write(f"Threshold keputusan: {meta['decision_threshold']} · "
              f"Risk bins: {meta['risk_bins']}")
-    st.caption("Model tidak dilatih ulang di aplikasi ini; aplikasi hanya melakukan inference.")
+    st.caption("Model tidak dilatih ulang di aplikasi ini; aplikasi hanya melakukan inference. "
+               "Untuk melatih ulang: `uv run python models/train_models.py`.")
 
 COLOR = {"Rendah": "🟢", "Sedang": "🟡", "Tinggi": "🔴"}
 
-if bagian in EDA_BAGIAN:
+if bagian in EDA_BAGIAN or bagian == DATA:
     k1, k2, k3, k4, k5 = st.columns(5)
     k1.metric("Total pelanggan", f"{len(eda):,}")
     k2.metric("Churn rate", f"{eda.churn.mean():.1%}")
@@ -209,6 +273,70 @@ if bagian in EDA_BAGIAN:
         st.markdown("**10 baris pertama**")
         st.dataframe(eda.head(10), width="stretch", hide_index=True)
 
+# PERBANDINGAN MODEL — metrik hasil training pada data uji (holdout) yang sama
+elif bagian == PRED_BANDING:
+    holdout = get_holdout()
+    y_uji = holdout["churn"]
+    st.caption(f"Semua model dinilai pada data uji yang sama: {registry['split']['n_test']} pelanggan "
+               f"(20% data, stratified, random_state={registry['split']['random_state']}). "
+               f"Metrik di bawah dihitung ulang pada threshold sidebar = **{threshold:.2f}**.")
+
+    rows = []
+    for k, m in MODELS.items():
+        r = metrik_holdout(y_uji, holdout[k], threshold)
+        r.update(model=m["name"], cv_roc_auc=m["cv_roc_auc"]["mean"])
+        rows.append(r)
+    tabel = pd.DataFrame(rows).set_index("model")
+    terbaik = tabel["roc_auc"].idxmax()
+    st.success(f"ROC-AUC tertinggi: **{terbaik}** ({tabel.loc[terbaik, 'roc_auc']:.3f}). "
+               f"Recall tertinggi pada threshold ini: **{tabel['recall'].idxmax()}** "
+               f"({tabel['recall'].max():.1%} pelanggan churn tertangkap).")
+
+    st.dataframe(
+        tabel.rename(columns={**METRIK, "cv_roc_auc": "CV ROC-AUC (5-fold)"})
+        .style.format("{:.3f}").highlight_max(axis=0, color="rgba(27, 175, 122, 0.30)"),
+        width="stretch",
+    )
+
+    c1, c2 = st.columns(2)
+    panjang = (tabel[list(METRIK)].rename(columns=METRIK).reset_index()
+               .melt(id_vars="model", var_name="metrik", value_name="nilai"))
+    gb = px.bar(panjang, x="metrik", y="nilai", color="model", barmode="group",
+                color_discrete_sequence=KATEGORI, text_auto=".2f",
+                title=f"Metrik holdout per model (threshold {threshold:.2f})")
+    gb.update_yaxes(range=[0, 1])
+    c1.plotly_chart(gaya(gb, 420), width="stretch")
+
+    roc = go.Figure()
+    for warna, (k, m) in zip(KATEGORI, MODELS.items()):
+        fpr, tpr, _ = roc_curve(y_uji, holdout[k])
+        roc.add_scatter(x=fpr, y=tpr, mode="lines", line_color=warna,
+                        line_width=3 if k == model_key else 1.5,
+                        name=f"{m['name']} (AUC {tabel.loc[m['name'], 'roc_auc']:.3f})")
+    roc.add_scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(dash="dot", color="gray"),
+                    name="Tebakan acak", showlegend=False)
+    roc.update_layout(title="Kurva ROC (garis tebal = model aktif)",
+                      xaxis_title="False positive rate", yaxis_title="True positive rate",
+                      legend=dict(x=0.45, y=0.05))
+    c2.plotly_chart(gaya(roc, 420), width="stretch")
+
+    c3, c4 = st.columns([2, 3])
+    cm = confusion_matrix(y_uji, (holdout[model_key] >= threshold).astype(int))
+    cmf = px.imshow(cm, text_auto=True, color_continuous_scale="Blues",
+                    x=["Prediksi Bertahan", "Prediksi Churn"], y=["Aktual Bertahan", "Aktual Churn"],
+                    title=f"Confusion matrix — {aktif['name']}")
+    cmf.update_coloraxes(showscale=False)
+    c3.plotly_chart(gaya(cmf, 380), width="stretch")
+    with c4:
+        st.markdown(f"**Cara membaca — {aktif['name']}**")
+        tn, fp, fn, tp = cm.ravel()
+        st.markdown(
+            f"- **{tp}** pelanggan churn berhasil terdeteksi, **{fn}** lolos tidak terdeteksi.\n"
+            f"- **{fp}** pelanggan setia ikut ditandai churn (biaya retensi terbuang).\n"
+            f"- Turunkan threshold untuk menangkap lebih banyak churn (recall naik), "
+            f"dengan konsekuensi lebih banyak alarm palsu (precision turun).")
+        st.caption(aktif["description"])
+
 # 2) PREDIKSI SATU PELANGGAN — input lewat form
 elif bagian == PRED_SATU:
     cats, rng = meta["categories"], meta["numeric_ranges"]
@@ -251,6 +379,18 @@ elif bagian == PRED_SATU:
                 st.warning("Rekomendasi: pantau, kirim survei kepuasan dan penawaran loyalitas.")
             else:
                 st.success("Rekomendasi: pertahankan layanan standar.")
+
+            with st.expander("Bandingkan dengan semua model"):
+                semua = pd.DataFrame([
+                    {"model": m["name"],
+                     **predict(get_model(model_path(m)), row, meta).iloc[0][
+                         ["churn_probability", "predicted_churn", "risk_category"]].to_dict()}
+                    for m in MODELS.values()
+                ])
+                semua["predicted_churn"] = semua["predicted_churn"].map({1: "Churn", 0: "Bertahan"})
+                st.dataframe(semua, width="stretch", hide_index=True, column_config={
+                    "churn_probability": st.column_config.ProgressColumn(
+                        "Probabilitas churn", min_value=0.0, max_value=1.0, format="%.2f")})
 
 # 3) PREDIKSI BATCH — upload CSV pelanggan baru
 elif bagian == PRED_BATCH:
