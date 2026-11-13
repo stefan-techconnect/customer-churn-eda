@@ -98,7 +98,12 @@ app.layout = html.Div(className="relative min-h-screen overflow-hidden bg-slate-
         ]),
         html.P("Klik batang region, klik satu titik scatter, atau seleksi beberapa titik untuk memfilter tabel.",
                className="mt-3 text-sm text-slate-400"),
-        html.H2(id="judul-tabel", className="mt-6 text-lg font-semibold"),
+        html.Div(className="mt-6 flex flex-wrap items-center justify-between gap-3", children=[
+            html.H2(id="judul-tabel", className="text-lg font-semibold"),
+            html.Button("Unduh CSV", id="btn-unduh", n_clicks=0,
+                        className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-semibold text-slate-950"),
+        ]),
+        dcc.Download(id="unduh-tabel"),
         html.Div(className="spotlight mt-3 overflow-x-auto rounded-3xl border border-white/10 bg-white/5 p-3", children=[
             dash_table.DataTable(
                 id="tbl", page_size=10, sort_action="native",
@@ -220,6 +225,15 @@ def update_tabel(click, selected, records):
         d = d[d.customer_id.isin(ids)]
         judul = f"Detail pelanggan — {len(ids)} titik terpilih"
     return d[TABEL_COLS].to_dict("records"), judul
+
+
+@callback(Output("unduh-tabel", "data"), Input("btn-unduh", "n_clicks"),
+          State("tbl", "data"), prevent_initial_call=True)
+def unduh_tabel(n_clicks, rows):
+    if not n_clicks or not rows:
+        raise PreventUpdate
+    tabel = pd.DataFrame(rows)
+    return dcc.send_data_frame(tabel.to_csv, "detail_pelanggan.csv", index=False)
 
 
 @callback(Output("detail", "children"), Input("g-scatter", "clickData"))
