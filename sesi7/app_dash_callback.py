@@ -30,6 +30,11 @@ app.layout = html.Div(style={"maxWidth": "1200px", "margin": "auto", "fontFamily
                                  options=["Semua", "Bulanan", "Tahunan", "Dua Tahun"])]),
     ]),
     html.Div(style={"marginTop": "12px"}, children=[
+        html.Label("Layanan internet"),
+        dcc.Checklist(id="cl-service", options=sorted(df.internet_service.unique()),
+                      value=[], inline=True),
+    ]),
+    html.Div(style={"marginTop": "12px"}, children=[
         html.Label("Tenure (bulan)"),
         dcc.RangeSlider(id="rs-tenure", min=1, max=72, step=1, value=[1, 72],
                         marks={i: str(i) for i in (1, 12, 24, 36, 48, 60, 72)}),
@@ -43,6 +48,7 @@ app.layout = html.Div(style={"maxWidth": "1200px", "margin": "auto", "fontFamily
         html.Span(id="info-keluhan", style={"color": "#666"}),
     ]),
     dcc.Store(id="store-keluhan", data=0),
+    dcc.Store(id="store-filter"),
 
     # ---- KPI ----
     html.Div(id="kpi", style={"display": "flex", "gap": "12px", "margin": "16px 0"}),
@@ -50,7 +56,12 @@ app.layout = html.Div(style={"maxWidth": "1200px", "margin": "auto", "fontFamily
     # ---- Charts ----
     html.Div(style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "12px"}, children=[
         dcc.Graph(id="g-bar"), dcc.Graph(id="g-scatter")]),
-    html.P("Tip: klik salah satu batang region untuk memfilter tabel di bawah.",
+    html.Div(style={"display": "grid", "gridTemplateColumns": "1.2fr 0.8fr", "gap": "12px"}, children=[
+        dcc.Graph(id="g-hist"),
+        html.Div(id="detail", style={"padding": "8px 4px"}),
+    ]),
+    html.P("Tip: klik batang region, klik titik scatter, atau seleksi beberapa titik (box/lasso) "
+           "untuk memfilter tabel.",
            style={"color": "#666"}),
     html.H3(id="judul-tabel"),
     dash_table.DataTable(id="tbl", page_size=10, sort_action="native",
@@ -62,12 +73,14 @@ app.layout = html.Div(style={"maxWidth": "1200px", "margin": "auto", "fontFamily
 ])
 
 
-def filter_df(region, segment, kontrak, tenure, min_keluhan):
+def filter_df(region, segment, kontrak, tenure, min_keluhan, layanan=None):
     d = df
     if region:
         d = d[d.region.isin(region)]
     if segment:
         d = d[d.segment.isin(segment)]
+    if layanan:
+        d = d[d.internet_service.isin(layanan)]
     if kontrak and kontrak != "Semua":
         d = d[d.contract_type == kontrak]
     d = d[d.tenure_months.between(tenure[0], tenure[1])]
@@ -85,27 +98,29 @@ def update_segment_options(region):
 @callback(Output("store-keluhan", "data"), Output("in-keluhan", "value"),
           Output("dd-region", "value"), Output("dd-segment", "value"),
           Output("rd-kontrak", "value"), Output("rs-tenure", "value"),
+          Output("cl-service", "value"),
           Input("btn-terapkan", "n_clicks"), Input("btn-reset", "n_clicks"),
           State("in-keluhan", "value"), prevent_initial_call=True)
 def terapkan_atau_reset(n_apply, n_reset, nilai):
     if ctx.triggered_id == "btn-reset":
-        return 0, 0, None, None, "Semua", [1, 72]
+        return 0, 0, None, None, "Semua", [1, 72], []
     if nilai is None:
         raise PreventUpdate                       # input kosong: jangan ubah apa pun
-    return nilai, no_update, no_update, no_update, no_update, no_update
+    return nilai, no_update, no_update, no_update, no_update, no_update, no_update
 
 
 # 3) Callback utama: banyak input -> banyak output
 @callback(Output("kpi", "children"), Output("g-bar", "figure"), Output("g-scatter", "figure"),
-          Output("info-keluhan", "children"),
+          Output("g-hist", "figure"), Output("info-keluhan", "children"),
+          Output("store-filter", "data"),
           Input("dd-region", "value"), Input("dd-segment", "value"), Input("rd-kontrak", "value"),
-          Input("rs-tenure", "value"), Input("store-keluhan", "data"))
-def update_dashboard(region, segment, kontrak, tenure, min_keluhan):
-    d = filter_df(region, segment, kontrak, tenure, min_keluhan)
+          Input("rs-tenure", "value"), Input("store-keluhan", "data"), Input("cl-service", "value"))
+def update_dashboard(region, segment, kontrak, tenure, min_keluhan, layanan):
+    d = filter_df(region, segment, kontrak, tenure, min_keluhan, layanan)
     info = f"Filter keluhan aktif: ≥ {min_keluhan}"
     if d.empty:
         kosong = px.scatter(title="Tidak ada data untuk filter ini")
-        return [html.Div("Data kosong", style=KARTU)], kosong, kosong, info
+        return [html.Div("Data kosong", style=KARTU)], kosong, kosong, kosong, info, []
 
     def kartu(j, v):
         return html.Div([html.Small(j), html.H2(v, style={"margin": "4px 0"})], style=KARTU)
@@ -120,23 +135,48 @@ def update_dashboard(region, segment, kontrak, tenure, min_keluhan):
     bar.update_yaxes(tickformat=".0%")
     sc = px.scatter(d, x="tenure_months", y="monthly_charges", color="status", opacity=0.6,
                     color_discrete_map=WARNA, template="plotly_white", hover_name="customer_id",
+                    custom_data=["customer_id"],
                     title="Tenure vs tagihan", labels={"tenure_months": "Tenure (bulan)",
                                                        "monthly_charges": "Tagihan (Rp)"})
-    return kpi, bar, sc, info
+    hist = px.histogram(d, x="tenure_months", color="status", nbins=30, barmode="overlay",
+                        opacity=0.7, color_discrete_map=WARNA, template="plotly_white",
+                        title="Distribusi tenure (ikut filter)",
+                        labels={"tenure_months": "Tenure (bulan)", "status": "Status"})
+    return kpi, bar, sc, hist, info, d[TABEL_COLS].to_dict("records")
 
 
 # 4) Interaksi antarkomponen: klik batang chart -> filter tabel
 @callback(Output("tbl", "data"), Output("judul-tabel", "children"),
-          Input("g-bar", "clickData"), Input("dd-region", "value"), Input("dd-segment", "value"),
-          Input("rd-kontrak", "value"), Input("rs-tenure", "value"), Input("store-keluhan", "data"))
-def update_tabel(click, region, segment, kontrak, tenure, min_keluhan):
-    d = filter_df(region, segment, kontrak, tenure, min_keluhan)
-    judul = "Detail pelanggan (semua region terpilih)"
+          Input("g-bar", "clickData"), Input("g-scatter", "selectedData"),
+          Input("store-filter", "data"))
+def update_tabel(click, selected, records):
+    if not records:
+        return [], "Tidak ada data"
+    d = pd.DataFrame(records)
+    judul = "Detail pelanggan (hasil filter)"
     if ctx.triggered_id == "g-bar" and click:
         reg = click["points"][0]["x"]
         d = d[d.region == reg]
         judul = f"Detail pelanggan — region {reg}"
+    elif ctx.triggered_id == "g-scatter" and selected and selected.get("points"):
+        ids = [p["customdata"][0] for p in selected["points"]]
+        d = d[d.customer_id.isin(ids)]
+        judul = f"Detail pelanggan — {len(ids)} titik terpilih"
     return d[TABEL_COLS].to_dict("records"), judul
+
+
+@callback(Output("detail", "children"), Input("g-scatter", "clickData"))
+def tampil_detail(click):
+    if not click:
+        raise PreventUpdate
+    cid = click["points"][0]["customdata"][0]
+    r = df.loc[df.customer_id == cid].iloc[0]
+    return html.Ul([
+        html.Li(f"ID: {r.customer_id}"),
+        html.Li(f"Region: {r.region}"),
+        html.Li(f"Kontrak: {r.contract_type}"),
+        html.Li(f"Keluhan: {r.num_complaints}"),
+    ])
 
 
 if __name__ == "__main__":
