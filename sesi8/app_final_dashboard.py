@@ -9,11 +9,18 @@ from dash.exceptions import PreventUpdate
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
-from utils.model_utils import load_model, load_metadata, validate_input, predict
+from utils.model_utils import load_model, load_metadata, load_registry, model_path, validate_input, predict
 
-# ============ 1. DATA + MODEL (dimuat sekali saat aplikasi start) ============
-META = load_metadata()
-MODEL = load_model()
+# ============ 1. DATA + MODEL TERBAIK (ROC-AUC holdout tertinggi) ============
+META = dict(load_metadata())
+REGISTRY = load_registry()
+BEST = max(REGISTRY["models"], key=lambda m: m["holdout_metrics"]["roc_auc"])
+MODEL = load_model(model_path(BEST))
+META.update(
+    model_name=BEST["name"],
+    algorithm=BEST["algorithm"],
+    holdout_metrics=BEST["holdout_metrics"],
+)
 raw = pd.read_csv(ROOT / "data" / "customer_churn.csv", parse_dates=["signup_date"])
 raw["total_charges"] = raw["total_charges"].fillna(raw["monthly_charges"] * raw["tenure_months"])
 DF = predict(MODEL, raw, META)                      # batch inference seluruh pelanggan
@@ -49,8 +56,10 @@ sidebar = html.Div(style={**CARD, "width": "250px", "flexShrink": 0}, children=[
     html.Br(), label("Tenure (bulan)"),
     dcc.RangeSlider(id="f-tenure", min=1, max=72, value=[1, 72], step=1,
                     marks={1: "1", 24: "24", 48: "48", 72: "72"}),
-    html.Hr(), html.Small(f"Model: {META['model_name']} v{META['model_version']}",
-                          style={"color": C["muted"]}),
+    html.Hr(),
+    html.Small("Model terbaik (holdout ROC-AUC)", style={"color": C["muted"], "display": "block"}),
+    html.Small(f"{BEST['name']} · AUC {BEST['holdout_metrics']['roc_auc']:.3f}",
+               style={"color": C["ink"], "fontWeight": 600}),
 ])
 
 tab_overview = html.Div([
@@ -118,8 +127,9 @@ app.layout = html.Div(style={"background": C["bg"], "minHeight": "100vh", "paddi
                              "fontFamily": "Inter, Arial, sans-serif", "color": C["ink"]}, children=[
     html.Div(style={"marginBottom": "12px"}, children=[
         html.H2("Customer Churn Intelligence Dashboard", style={"margin": 0}),
-        html.Div("Pertanyaan bisnis: pelanggan mana yang berisiko churn dan apa yang harus dilakukan? "
-                 "· Data latihan 2023–2025 · Prediksi dari final trained model",
+        html.Div(f"Pertanyaan bisnis: pelanggan mana yang berisiko churn dan apa yang harus dilakukan? "
+                 f"· Data latihan 2023–2025 · Prediksi: {BEST['name']} "
+                 f"(ROC-AUC {BEST['holdout_metrics']['roc_auc']:.3f})",
                  style={"color": C["muted"]})]),
     html.Div(style={"display": "flex", "gap": "12px", "alignItems": "flex-start"}, children=[
         sidebar,
