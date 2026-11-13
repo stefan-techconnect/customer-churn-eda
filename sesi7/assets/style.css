@@ -19,6 +19,37 @@
     isolation: isolate;
 }
 
+.filter-card.spotlight {
+    isolation: auto;
+    z-index: 40;
+    overflow: visible;
+}
+
+.filter-card label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin-right: 1rem;
+}
+
+.filter-card input[type="radio"],
+.filter-card input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    margin: 0;
+    accent-color: #22d3ee;
+}
+
+.filter-card .filter-fields {
+    position: relative;
+    z-index: 50;
+}
+
+.filter-card > .mt-4 {
+    position: relative;
+    z-index: 1;
+}
+
 .spotlight::before {
     content: "";
     position: absolute;

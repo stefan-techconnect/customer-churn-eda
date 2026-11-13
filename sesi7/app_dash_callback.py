@@ -32,8 +32,8 @@ app.layout = html.Div(className="relative min-h-screen overflow-hidden bg-slate-
         html.P("Filter di kartu atas mengubah KPI, grafik, dan tabel sekaligus.",
                className="mt-2 text-sm text-slate-300"),
 
-        html.Div(className="spotlight mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl", children=[
-            html.Div(className="grid gap-4 md:grid-cols-3", children=[
+        html.Div(className="filter-card spotlight mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl", children=[
+            html.Div(className="filter-fields grid gap-4 md:grid-cols-3", children=[
                 html.Div([html.Label("Region", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
                           dcc.Dropdown(id="dd-region", options=sorted(df.region.unique()), multi=True,
                                        placeholder="Semua region")]),
