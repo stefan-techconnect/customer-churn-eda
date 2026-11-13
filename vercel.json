@@ -1,0 +1,8 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app.py": {
+      "excludeFiles": "{docs/**,sesi1/**,sesi2/**,sesi3/**,sesi4/**,sesi5/**,sesi6/**,sesi7/**,.venv/**,**/__pycache__/**,**/*.pdf,models/churn_model_random_forest*.joblib,models/churn_model_svm*.joblib,models/churn_model_gradient_boosting_ros.joblib,models/top3_models_cv_roc_auc.zip,models/bundle_top_models.py}"
+    }
+  }
+}
