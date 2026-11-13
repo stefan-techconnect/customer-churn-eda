@@ -4,12 +4,17 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "dash>=2.17",
+    "flask>=3.0",
     "imbalanced-learn>=0.14.2",
     "joblib>=1.4",
-    "matplotlib>=3.8",
     "numpy>=1.26",
     "pandas>=2.2",
     "plotly>=5.22",
     "scikit-learn==1.9.1",
+]
+
+[dependency-groups]
+course = [
+    "matplotlib>=3.8",
     "streamlit>=1.40",
 ]
