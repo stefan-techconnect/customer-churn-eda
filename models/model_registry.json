@@ -1,0 +1,239 @@
+{
+  "split": {
+    "test_size": 0.2,
+    "stratify": "churn",
+    "random_state": 42,
+    "n_train": 2400,
+    "n_test": 600
+  },
+  "cv": "StratifiedKFold(5, shuffle=True, random_state=42) pada seluruh data",
+  "metrics_threshold": 0.5,
+  "train_class_counts": {
+    "sebelum": {
+      "Bertahan": 1562,
+      "Churn": 838
+    },
+    "sesudah": {
+      "Bertahan": 1562,
+      "Churn": 1562
+    }
+  },
+  "models": [
+    {
+      "key": "gradient_boosting",
+      "name": "Gradient Boosting",
+      "family": "Gradient Boosting",
+      "oversampling": null,
+      "description": "Model final asli dari fasilitator (churn_model.joblib).",
+      "algorithm": "GradientBoostingClassifier (scikit-learn Pipeline)",
+      "file": "churn_model.joblib",
+      "holdout_metrics": {
+        "accuracy": 0.7183,
+        "precision": 0.6073,
+        "recall": 0.5524,
+        "f1": 0.5786,
+        "roc_auc": 0.7887
+      },
+      "cv_metrics": {
+        "accuracy": 0.7243,
+        "precision": 0.6188,
+        "recall": 0.5524,
+        "f1": 0.5832,
+        "roc_auc": 0.7923
+      },
+      "cv_roc_auc": {
+        "mean": 0.7923,
+        "std": 0.0115
+      }
+    },
+    {
+      "key": "gradient_boosting_ros",
+      "name": "Gradient Boosting + Oversampling",
+      "family": "Gradient Boosting",
+      "oversampling": "RandomOverSampler",
+      "description": "Ensemble boosting 200 pohon dangkal; struktur sama dengan model final asli.",
+      "algorithm": "GradientBoostingClassifier (scikit-learn Pipeline) + RandomOverSampler (imblearn)",
+      "file": "churn_model_gradient_boosting_ros.joblib",
+      "holdout_metrics": {
+        "accuracy": 0.7183,
+        "precision": 0.5798,
+        "recall": 0.7095,
+        "f1": 0.6381,
+        "roc_auc": 0.7854
+      },
+      "cv_metrics": {
+        "accuracy": 0.7183,
+        "precision": 0.5745,
+        "recall": 0.7576,
+        "f1": 0.6529,
+        "roc_auc": 0.7876
+      },
+      "cv_roc_auc": {
+        "mean": 0.7876,
+        "std": 0.0139
+      }
+    },
+    {
+      "key": "logreg",
+      "name": "Logistic Regression",
+      "family": "Logistic Regression",
+      "oversampling": null,
+      "description": "Model linear; koefisiennya mudah dijelaskan ke tim bisnis.",
+      "algorithm": "LogisticRegression (scikit-learn Pipeline)",
+      "file": "churn_model_logreg.joblib",
+      "holdout_metrics": {
+        "accuracy": 0.7217,
+        "precision": 0.6215,
+        "recall": 0.5238,
+        "f1": 0.5685,
+        "roc_auc": 0.7956
+      },
+      "cv_metrics": {
+        "accuracy": 0.733,
+        "precision": 0.6318,
+        "recall": 0.5649,
+        "f1": 0.5962,
+        "roc_auc": 0.7998
+      },
+      "cv_roc_auc": {
+        "mean": 0.7998,
+        "std": 0.0134
+      }
+    },
+    {
+      "key": "logreg_ros",
+      "name": "Logistic Regression + Oversampling",
+      "family": "Logistic Regression",
+      "oversampling": "RandomOverSampler",
+      "description": "Model linear; koefisiennya mudah dijelaskan ke tim bisnis.",
+      "algorithm": "LogisticRegression (scikit-learn Pipeline) + RandomOverSampler (imblearn)",
+      "file": "churn_model_logreg_ros.joblib",
+      "holdout_metrics": {
+        "accuracy": 0.7067,
+        "precision": 0.5634,
+        "recall": 0.719,
+        "f1": 0.6318,
+        "roc_auc": 0.7943
+      },
+      "cv_metrics": {
+        "accuracy": 0.7163,
+        "precision": 0.5695,
+        "recall": 0.7758,
+        "f1": 0.6564,
+        "roc_auc": 0.799
+      },
+      "cv_roc_auc": {
+        "mean": 0.799,
+        "std": 0.0134
+      }
+    },
+    {
+      "key": "random_forest",
+      "name": "Random Forest",
+      "family": "Random Forest",
+      "oversampling": null,
+      "description": "Ensemble bagging 400 decision tree; menangkap interaksi non-linear.",
+      "algorithm": "RandomForestClassifier (scikit-learn Pipeline)",
+      "file": "churn_model_random_forest.joblib",
+      "holdout_metrics": {
+        "accuracy": 0.715,
+        "precision": 0.6054,
+        "recall": 0.5333,
+        "f1": 0.5671,
+        "roc_auc": 0.7794
+      },
+      "cv_metrics": {
+        "accuracy": 0.728,
+        "precision": 0.6193,
+        "recall": 0.5734,
+        "f1": 0.5949,
+        "roc_auc": 0.7879
+      },
+      "cv_roc_auc": {
+        "mean": 0.7879,
+        "std": 0.0115
+      }
+    },
+    {
+      "key": "random_forest_ros",
+      "name": "Random Forest + Oversampling",
+      "family": "Random Forest",
+      "oversampling": "RandomOverSampler",
+      "description": "Ensemble bagging 400 decision tree; menangkap interaksi non-linear.",
+      "algorithm": "RandomForestClassifier (scikit-learn Pipeline) + RandomOverSampler (imblearn)",
+      "file": "churn_model_random_forest_ros.joblib",
+      "holdout_metrics": {
+        "accuracy": 0.7167,
+        "precision": 0.5806,
+        "recall": 0.6857,
+        "f1": 0.6288,
+        "roc_auc": 0.7831
+      },
+      "cv_metrics": {
+        "accuracy": 0.714,
+        "precision": 0.5716,
+        "recall": 0.7281,
+        "f1": 0.6401,
+        "roc_auc": 0.7858
+      },
+      "cv_roc_auc": {
+        "mean": 0.7858,
+        "std": 0.0113
+      }
+    },
+    {
+      "key": "svm",
+      "name": "SVM (RBF kernel)",
+      "family": "SVM (RBF kernel)",
+      "oversampling": null,
+      "description": "Support Vector Machine kernel RBF; probabilitas dari kalibrasi sigmoid (Platt).",
+      "algorithm": "SVC RBF + CalibratedClassifierCV (scikit-learn Pipeline)",
+      "file": "churn_model_svm.joblib",
+      "holdout_metrics": {
+        "accuracy": 0.7067,
+        "precision": 0.6049,
+        "recall": 0.4667,
+        "f1": 0.5269,
+        "roc_auc": 0.7621
+      },
+      "cv_metrics": {
+        "accuracy": 0.7307,
+        "precision": 0.642,
+        "recall": 0.5162,
+        "f1": 0.572,
+        "roc_auc": 0.7737
+      },
+      "cv_roc_auc": {
+        "mean": 0.7737,
+        "std": 0.0109
+      }
+    },
+    {
+      "key": "svm_ros",
+      "name": "SVM (RBF kernel) + Oversampling",
+      "family": "SVM (RBF kernel)",
+      "oversampling": "RandomOverSampler",
+      "description": "Support Vector Machine kernel RBF; probabilitas dari kalibrasi sigmoid (Platt).",
+      "algorithm": "SVC RBF + CalibratedClassifierCV (scikit-learn Pipeline) + RandomOverSampler (imblearn)",
+      "file": "churn_model_svm_ros.joblib",
+      "holdout_metrics": {
+        "accuracy": 0.7083,
+        "precision": 0.5651,
+        "recall": 0.7238,
+        "f1": 0.6347,
+        "roc_auc": 0.7684
+      },
+      "cv_metrics": {
+        "accuracy": 0.7027,
+        "precision": 0.5546,
+        "recall": 0.7691,
+        "f1": 0.6438,
+        "roc_auc": 0.7723
+      },
+      "cv_roc_auc": {
+        "mean": 0.7723,
+        "std": 0.0091
+      }
+    }
+  ]
+}

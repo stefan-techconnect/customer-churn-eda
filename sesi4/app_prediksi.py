@@ -145,6 +145,10 @@ st.caption("Eksplorasi customer_churn.csv, lalu inference model final pada pelan
 with st.expander(f"ℹ️ Model aktif: {aktif['name']}", expanded=False):
     st.write(f"**{meta['model_name']}** · versi {meta['model_version']} · {meta['algorithm']}")
     st.caption(aktif["description"])
+    if aktif["oversampling"]:
+        st.info("Model ini dilatih dengan **oversampling** (RandomOverSampler): kelas churn diseimbangkan "
+                "pada data latih. Recall lebih tinggi, tetapi probabilitas cenderung lebih tinggi "
+                "dibanding model tanpa oversampling.")
     kolom_metrik = st.columns(len(METRIK) + 1)
     for kol, (k, label) in zip(kolom_metrik, METRIK.items()):
         kol.metric(label, f"{aktif['holdout_metrics'][k]:.3f}")
@@ -281,61 +285,91 @@ elif bagian == PRED_BANDING:
                f"(20% data, stratified, random_state={registry['split']['random_state']}). "
                f"Metrik di bawah dihitung ulang pada threshold sidebar = **{threshold:.2f}**.")
 
+    # Ketimpangan kelas: data latih sebelum vs sesudah oversampling
+    jumlah = registry["train_class_counts"]
+    kelas = pd.DataFrame([{"data latih": tahap.capitalize(), "status": s, "pelanggan": n}
+                          for tahap, isi in jumlah.items() for s, n in isi.items()])
+    c1, c2 = st.columns([2, 3])
+    dist = px.bar(kelas, x="data latih", y="pelanggan", color="status", barmode="group",
+                  text_auto=True, color_discrete_map=STATUS,
+                  title="Data latih sebelum & sesudah oversampling")
+    dist.update_layout(xaxis_title="")
+    c1.plotly_chart(gaya(dist, 330), width="stretch")
+    with c2:
+        st.markdown("**Stratified sampling vs oversampling**")
+        st.markdown(
+            f"- **Stratified sampling** — split train/test dan 5 fold CV menjaga rasio churn "
+            f"~{y_uji.mean():.0%} di setiap bagian, sehingga evaluasi adil. Rasio kelas tidak berubah.\n"
+            f"- **Oversampling (RandomOverSampler)** — baris churn di data latih diduplikasi acak "
+            f"({jumlah['sebelum']['Churn']:,} → {jumlah['sesudah']['Churn']:,}) agar model belajar "
+            f"seimbang dari kedua kelas. Hanya data latih; data uji tetap data asli.\n"
+            f"- Efeknya: **recall & F1 naik**, precision turun, ROC-AUC hampir sama. Probabilitas "
+            f"model oversampling cenderung lebih tinggi, jadi lebih banyak pelanggan masuk risiko Tinggi.")
+
     rows = []
     for k, m in MODELS.items():
         r = metrik_holdout(y_uji, holdout[k], threshold)
-        r.update(model=m["name"], cv_roc_auc=m["cv_roc_auc"]["mean"])
+        r.update(model=m["name"], algoritma=m["family"],
+                 sampling="Oversampling" if m["oversampling"] else "Tanpa oversampling",
+                 cv_recall=m["cv_metrics"]["recall"], cv_f1=m["cv_metrics"]["f1"],
+                 cv_roc_auc=m["cv_metrics"]["roc_auc"])
         rows.append(r)
     tabel = pd.DataFrame(rows).set_index("model")
     terbaik = tabel["roc_auc"].idxmax()
     st.success(f"ROC-AUC tertinggi: **{terbaik}** ({tabel.loc[terbaik, 'roc_auc']:.3f}). "
                f"Recall tertinggi pada threshold ini: **{tabel['recall'].idxmax()}** "
-               f"({tabel['recall'].max():.1%} pelanggan churn tertangkap).")
+               f"({tabel['recall'].max():.1%} pelanggan churn tertangkap). "
+               f"F1 tertinggi: **{tabel['f1'].idxmax()}** ({tabel['f1'].max():.3f}).")
 
+    angka = [*METRIK, "cv_recall", "cv_f1", "cv_roc_auc"]
     st.dataframe(
-        tabel.rename(columns={**METRIK, "cv_roc_auc": "CV ROC-AUC (5-fold)"})
+        tabel[angka].rename(columns={**METRIK, "cv_recall": "CV Recall", "cv_f1": "CV F1",
+                                     "cv_roc_auc": "CV ROC-AUC"})
         .style.format("{:.3f}").highlight_max(axis=0, color="rgba(27, 175, 122, 0.30)"),
         width="stretch",
     )
+    st.caption("Kolom CV = rata-rata 5-fold stratified cross-validation (threshold 0,5); "
+               "oversampling diterapkan di dalam setiap fold latih saja.")
 
-    c1, c2 = st.columns(2)
-    panjang = (tabel[list(METRIK)].rename(columns=METRIK).reset_index()
-               .melt(id_vars="model", var_name="metrik", value_name="nilai"))
-    gb = px.bar(panjang, x="metrik", y="nilai", color="model", barmode="group",
-                color_discrete_sequence=KATEGORI, text_auto=".2f",
-                title=f"Metrik holdout per model (threshold {threshold:.2f})")
+    panjang = (tabel[["algoritma", "sampling", *METRIK]].rename(columns=METRIK)
+               .melt(id_vars=["algoritma", "sampling"], var_name="metrik", value_name="nilai"))
+    gb = px.bar(panjang, x="algoritma", y="nilai", color="sampling", barmode="group",
+                facet_col="metrik", text_auto=".2f",
+                color_discrete_map={"Tanpa oversampling": "#9dbbe6", "Oversampling": "#2a78d6"},
+                title=f"Efek oversampling per algoritma (holdout, threshold {threshold:.2f})")
+    gb.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
     gb.update_yaxes(range=[0, 1])
-    c1.plotly_chart(gaya(gb, 420), width="stretch")
+    gb.update_xaxes(title="", tickangle=-35)
+    st.plotly_chart(gaya(gb, 430), width="stretch")
 
+    WARNA_ALGO = dict(zip(dict.fromkeys(m["family"] for m in MODELS.values()), KATEGORI))
+    c3, c4 = st.columns(2)
     roc = go.Figure()
-    for warna, (k, m) in zip(KATEGORI, MODELS.items()):
+    for k, m in MODELS.items():
         fpr, tpr, _ = roc_curve(y_uji, holdout[k])
-        roc.add_scatter(x=fpr, y=tpr, mode="lines", line_color=warna,
-                        line_width=3 if k == model_key else 1.5,
-                        name=f"{m['name']} (AUC {tabel.loc[m['name'], 'roc_auc']:.3f})")
+        roc.add_scatter(x=fpr, y=tpr, mode="lines",
+                        line=dict(color=WARNA_ALGO[m["family"]], width=3.5 if k == model_key else 1.5,
+                                  dash="dash" if m["oversampling"] else "solid"),
+                        name=f"{m['name']} ({tabel.loc[m['name'], 'roc_auc']:.3f})")
     roc.add_scatter(x=[0, 1], y=[0, 1], mode="lines", line=dict(dash="dot", color="gray"),
                     name="Tebakan acak", showlegend=False)
-    roc.update_layout(title="Kurva ROC (garis tebal = model aktif)",
+    roc.update_layout(title="Kurva ROC (putus-putus = oversampling, tebal = model aktif)",
                       xaxis_title="False positive rate", yaxis_title="True positive rate",
-                      legend=dict(x=0.45, y=0.05))
-    c2.plotly_chart(gaya(roc, 420), width="stretch")
+                      legend=dict(font_size=10))
+    c3.plotly_chart(gaya(roc, 440), width="stretch")
 
-    c3, c4 = st.columns([2, 3])
     cm = confusion_matrix(y_uji, (holdout[model_key] >= threshold).astype(int))
     cmf = px.imshow(cm, text_auto=True, color_continuous_scale="Blues",
                     x=["Prediksi Bertahan", "Prediksi Churn"], y=["Aktual Bertahan", "Aktual Churn"],
                     title=f"Confusion matrix — {aktif['name']}")
     cmf.update_coloraxes(showscale=False)
-    c3.plotly_chart(gaya(cmf, 380), width="stretch")
-    with c4:
-        st.markdown(f"**Cara membaca — {aktif['name']}**")
-        tn, fp, fn, tp = cm.ravel()
-        st.markdown(
-            f"- **{tp}** pelanggan churn berhasil terdeteksi, **{fn}** lolos tidak terdeteksi.\n"
-            f"- **{fp}** pelanggan setia ikut ditandai churn (biaya retensi terbuang).\n"
-            f"- Turunkan threshold untuk menangkap lebih banyak churn (recall naik), "
-            f"dengan konsekuensi lebih banyak alarm palsu (precision turun).")
-        st.caption(aktif["description"])
+    c4.plotly_chart(gaya(cmf, 330), width="stretch")
+    tn, fp, fn, tp = cm.ravel()
+    c4.markdown(
+        f"- **{tp}** pelanggan churn berhasil terdeteksi, **{fn}** lolos tidak terdeteksi.\n"
+        f"- **{fp}** pelanggan setia ikut ditandai churn (biaya retensi terbuang).\n"
+        f"- Oversampling atau threshold lebih rendah menangkap lebih banyak churn (recall naik), "
+        f"dengan konsekuensi lebih banyak alarm palsu (precision turun).")
 
 # 2) PREDIKSI SATU PELANGGAN — input lewat form
 elif bagian == PRED_SATU:

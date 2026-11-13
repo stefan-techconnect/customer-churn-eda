@@ -7,6 +7,23 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = ROOT / "models" / "churn_model.joblib"
 META_PATH = ROOT / "models" / "model_metadata.json"
+REGISTRY_PATH = ROOT / "models" / "model_registry.json"
+HOLDOUT_PATH = ROOT / "models" / "holdout_predictions.csv"
+
+
+def load_registry(path=REGISTRY_PATH) -> dict:
+    """Daftar model pembanding + metrik holdout (dibuat oleh models/train_models.py)."""
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def load_holdout(path=HOLDOUT_PATH) -> pd.DataFrame:
+    """Label asli & probabilitas churn tiap model pada data uji (holdout 20%)."""
+    return pd.read_csv(path)
+
+
+def model_path(entry: dict) -> Path:
+    """Path file .joblib untuk satu entri registry."""
+    return ROOT / "models" / entry["file"]
 
 
 def load_metadata(path=META_PATH) -> dict:
@@ -15,7 +32,10 @@ def load_metadata(path=META_PATH) -> dict:
 
 
 def load_model(path=MODEL_PATH):
-    """Memuat final trained model (Pipeline preprocessing + classifier). Tanpa training ulang."""
+    """Memuat final trained model (Pipeline preprocessing + classifier). Tanpa training ulang.
+
+    joblib memakai pickle: hanya muat file model milik proyek ini, bukan file dari luar.
+    """
     return joblib.load(path)
 
 
