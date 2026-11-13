@@ -1,0 +1,30 @@
+body {
+    background: #f3f6fb;
+    color: #1f2a44;
+}
+
+.halaman {
+    min-height: 100vh;
+}
+
+.kartu {
+    border-radius: 16px;
+    background: #ffffff;
+}
+
+.kartu-aksen {
+    width: 42px;
+    height: 4px;
+    border-radius: 99px;
+    margin-bottom: 12px;
+}
+
+.panel {
+    border-radius: 16px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.judul-halaman {
+    letter-spacing: -0.03em;
+}
