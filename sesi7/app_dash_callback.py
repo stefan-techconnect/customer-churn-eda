@@ -33,29 +33,33 @@ app.layout = html.Div(className="relative min-h-screen overflow-hidden bg-slate-
                className="mt-2 text-sm text-slate-300"),
 
         html.Div(className="filter-card spotlight mt-6 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl", children=[
-            html.Div(className="filter-fields grid gap-4 md:grid-cols-3", children=[
-                html.Div([html.Label("Region", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
-                          dcc.Dropdown(id="dd-region", options=sorted(df.region.unique()), multi=True,
-                                       placeholder="Semua region")]),
-                html.Div([html.Label("Segmen", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
-                          dcc.Dropdown(id="dd-segment", multi=True, placeholder="Semua segmen")]),
-                html.Div([html.Label("Jenis kontrak", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
-                          dcc.RadioItems(id="rd-kontrak", inline=True, value="Semua",
-                                         options=["Semua", "Bulanan", "Tahunan", "Dua Tahun"],
-                                         className="text-sm text-slate-200")]),
+            html.Div(className="mb-4", children=[
+                html.Label("Jenis kontrak", className="mb-2 block text-xs uppercase tracking-wide text-slate-400"),
+                dcc.RadioItems(
+                    id="rd-kontrak", inline=True, value="Semua",
+                    options=["Semua", "Bulanan", "Tahunan", "Dua Tahun"],
+                    className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-100",
+                    inputStyle={"marginRight": "8px", "accentColor": "#22d3ee"},
+                    labelStyle={"display": "inline-flex", "alignItems": "center", "marginRight": "4px"},
+                ),
             ]),
-            html.Div(className="mt-4", children=[
-                html.Label("Layanan internet", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
-                dcc.Checklist(id="cl-service", options=sorted(df.internet_service.unique()),
-                              value=[], inline=True, className="text-sm text-slate-200"),
+            html.Div(className="mb-4", children=[
+                html.Label("Layanan internet", className="mb-2 block text-xs uppercase tracking-wide text-slate-400"),
+                dcc.Checklist(
+                    id="cl-service", options=sorted(df.internet_service.unique()),
+                    value=[], inline=True,
+                    className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-100",
+                    inputStyle={"marginRight": "8px", "accentColor": "#22d3ee"},
+                    labelStyle={"display": "inline-flex", "alignItems": "center", "marginRight": "4px"},
+                ),
             ]),
-            html.Div(className="mt-4", children=[
+            html.Div(className="mb-4", children=[
                 html.Label("Tenure (bulan)", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
                 dcc.RangeSlider(id="rs-tenure", min=1, max=72, step=1, value=[1, 72],
                                 marks={i: str(i) for i in (1, 12, 24, 48, 72)},
                                 tooltip={"placement": "bottom", "always_visible": False}),
             ]),
-            html.Div(className="mt-4 flex flex-wrap items-center gap-3", children=[
+            html.Div(className="mb-5 flex flex-wrap items-center gap-3", children=[
                 html.Label("Minimal keluhan", className="text-sm text-slate-300"),
                 dcc.Input(id="in-keluhan", type="number", min=0, max=10, value=0,
                           className="w-20 rounded-lg border border-white/10 bg-slate-900 px-2 py-1 text-white"),
@@ -64,6 +68,18 @@ app.layout = html.Div(className="relative min-h-screen overflow-hidden bg-slate-
                 html.Button("Reset filter", id="btn-reset", n_clicks=0,
                             className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-slate-200"),
                 html.Span(id="info-keluhan", className="text-sm text-slate-400"),
+            ]),
+            html.Div(className="dropdown-row grid gap-4 md:grid-cols-2", children=[
+                html.Div([
+                    html.Label("Region", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
+                    dcc.Dropdown(id="dd-region", options=sorted(df.region.unique()), multi=True,
+                                 placeholder="Semua region", className="text-slate-900"),
+                ]),
+                html.Div([
+                    html.Label("Segmen", className="mb-1 block text-xs uppercase tracking-wide text-slate-400"),
+                    dcc.Dropdown(id="dd-segment", multi=True, placeholder="Semua segmen",
+                                 className="text-slate-900"),
+                ]),
             ]),
         ]),
         dcc.Store(id="store-keluhan", data=0),

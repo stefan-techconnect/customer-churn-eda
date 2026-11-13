@@ -40,14 +40,14 @@
     accent-color: #22d3ee;
 }
 
-.filter-card .filter-fields {
+.filter-card .dropdown-row {
     position: relative;
-    z-index: 50;
+    z-index: 80;
 }
 
-.filter-card > .mt-4 {
+#kpi {
     position: relative;
-    z-index: 1;
+    z-index: 0;
 }
 
 .spotlight::before {
