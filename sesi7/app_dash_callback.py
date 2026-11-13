@@ -1,4 +1,5 @@
 # sesi7/app_dash_callback.py — sistem callback Dash: filter -> KPI, chart, tabel
+import os
 from pathlib import Path
 import pandas as pd
 import plotly.express as px
@@ -180,4 +181,5 @@ def tampil_detail(click):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=8052)
+    port = int(os.environ.get("PORT", "8052"))
+    app.run(host="0.0.0.0", port=port, debug=port == 8052)

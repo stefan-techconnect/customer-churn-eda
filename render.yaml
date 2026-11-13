@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: sesi7-dash-callback
+    runtime: python
+    plan: starter
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: python sesi7/app_dash_callback.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.11"
