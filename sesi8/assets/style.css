@@ -1,0 +1,83 @@
+.aurora {
+    background:
+        radial-gradient(42rem 22rem at 8% -12%, rgba(37, 99, 235, 0.16), transparent 62%),
+        radial-gradient(36rem 20rem at 92% 0%, rgba(124, 58, 237, 0.12), transparent 58%),
+        radial-gradient(28rem 16rem at 70% 100%, rgba(14, 165, 233, 0.1), transparent 55%);
+}
+
+.gradient-text {
+    background: linear-gradient(90deg, #1d4ed8, #6d28d9 55%, #be123c);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.spotlight {
+    position: relative;
+    isolation: isolate;
+}
+
+.spotlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+        22rem circle at var(--mx, 50%) var(--my, 0%),
+        rgba(37, 99, 235, 0.08),
+        transparent 45%
+    );
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+}
+
+.spotlight:hover::before {
+    opacity: 1;
+}
+
+.side-card {
+    overflow: visible;
+    z-index: 20;
+}
+
+.side-card .dropdown-row {
+    position: relative;
+    z-index: 30;
+}
+
+.model-card {
+    width: 100%;
+    cursor: pointer;
+    text-align: left;
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    padding: 1rem 1.1rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.model-card.is-active {
+    border-color: #1d4ed8;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+}
+
+.churn-tabs .tab {
+    border: 1px solid #e2e8f0 !important;
+    background: #fff !important;
+    color: #334155 !important;
+    border-radius: 999px !important;
+    margin: 0 8px 12px 0 !important;
+    padding: 8px 16px !important;
+    font-weight: 600;
+}
+
+.churn-tabs .tab--selected {
+    background: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+    color: #fff !important;
+}
+
+.side-card input[type="checkbox"] {
+    margin-right: 8px;
+}
