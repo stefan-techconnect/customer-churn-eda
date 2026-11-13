@@ -1,0 +1,44 @@
+.aurora {
+    background:
+        radial-gradient(40rem 24rem at 15% -10%, rgba(56, 189, 248, 0.35), transparent 60%),
+        radial-gradient(36rem 22rem at 90% 0%, rgba(168, 85, 247, 0.28), transparent 55%),
+        radial-gradient(28rem 18rem at 70% 100%, rgba(244, 63, 94, 0.18), transparent 50%);
+    filter: blur(8px);
+    animation: aurora 18s ease-in-out infinite alternate;
+}
+
+.gradient-text {
+    background: linear-gradient(90deg, #67e8f9, #c4b5fd 45%, #fda4af);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.spotlight {
+    position: relative;
+    isolation: isolate;
+}
+
+.spotlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: radial-gradient(
+        28rem circle at var(--mx, 50%) var(--my, 0%),
+        rgba(255, 255, 255, 0.14),
+        transparent 42%
+    );
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    pointer-events: none;
+}
+
+.spotlight:hover::before {
+    opacity: 1;
+}
+
+@keyframes aurora {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to { transform: translate3d(0, 2rem, 0) scale(1.08); }
+}

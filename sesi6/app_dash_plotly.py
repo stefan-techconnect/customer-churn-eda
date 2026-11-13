@@ -60,24 +60,59 @@ gauge = go.Figure(go.Indicator(
 ))
 gauge.update_layout(template="plotly_white", height=360)
 
-app = Dash(__name__, title="Plotly di Dash")
-app.layout = html.Div(style={"maxWidth": "1150px", "margin": "auto", "fontFamily": "Arial"}, children=[
-    html.H1("Interactive Visualization with Plotly"),
-    html.P("Arahkan kursor (hover), zoom dengan drag, double-click untuk reset, klik legenda untuk filter."),
-    html.Div(style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "12px"}, children=[
-        dcc.Graph(figure=hist), dcc.Graph(figure=scatter)]),
-    dcc.Graph(figure=bar, config={"displaylogo": False,
-                                  "toImageButtonOptions": {"format": "png", "scale": 2}}),
-    dcc.Graph(figure=pay),
-    html.Div(style={"display": "grid", "gridTemplateColumns": "1.4fr 0.8fr", "gap": "12px"}, children=[
-        html.Div([
-            dcc.Graph(figure=sun),
-            html.P("Cara membaca sunburst: luas setiap irisan sebanding dengan jumlah pelanggan. "
-                   "Lingkar dalam adalah region, tengah segmen, dan luar jenis kontrak. "
-                   "Klik irisan untuk memperbesar cabang tersebut.",
-                   style={"color": "#555", "marginTop": 0}),
+def gelap(fig):
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font_color="#e2e8f0",
+        title_font_color="#f8fafc",
+        legend_bgcolor="rgba(0,0,0,0)",
+    )
+    fig.update_xaxes(gridcolor="rgba(255,255,255,0.08)", zerolinecolor="rgba(255,255,255,0.12)")
+    fig.update_yaxes(gridcolor="rgba(255,255,255,0.08)", zerolinecolor="rgba(255,255,255,0.12)")
+    return fig
+
+for figur in (hist, scatter, bar, pay, sun, gauge):
+    gelap(figur)
+
+def panel(figure, config=None):
+    return html.Div(
+        className="spotlight overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl backdrop-blur-xl",
+        children=dcc.Graph(figure=figure, config=config or {"displayModeBar": False}),
+    )
+
+app = Dash(
+    __name__,
+    title="Plotly di Dash",
+    external_scripts=["https://cdn.tailwindcss.com"],
+    assets_folder=str(Path(__file__).resolve().parent / "assets"),
+)
+app.layout = html.Div(className="relative min-h-screen overflow-hidden bg-slate-950 text-slate-100", children=[
+    html.Div(className="aurora pointer-events-none absolute inset-0"),
+    html.Div(className="relative mx-auto max-w-6xl px-6 py-10", children=[
+        html.P("Sesi 6", className="mb-3 text-xs font-semibold uppercase tracking-[0.28em] text-cyan-300/80"),
+        html.H1("Interactive Visualization", className="gradient-text text-4xl font-semibold tracking-tight sm:text-5xl"),
+        html.P("Hover untuk spotlight, zoom dengan drag, double-click untuk reset, dan klik legenda untuk menyaring.",
+               className="mt-3 max-w-2xl text-sm text-slate-300"),
+        html.Div(className="mt-8 grid gap-4 md:grid-cols-2", children=[
+            panel(hist),
+            panel(scatter),
         ]),
-        dcc.Graph(figure=gauge),
+        html.Div(className="mt-4", children=panel(
+            bar,
+            {"displaylogo": False, "toImageButtonOptions": {"format": "png", "scale": 2}},
+        )),
+        html.Div(className="mt-4", children=panel(pay)),
+        html.Div(className="mt-4 grid items-start gap-4 lg:grid-cols-[1.4fr_0.8fr]", children=[
+            html.Div(className="spotlight overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl backdrop-blur-xl", children=[
+                dcc.Graph(figure=sun, config={"displayModeBar": False}),
+                html.P("Cara membaca sunburst: luas setiap irisan sebanding dengan jumlah pelanggan. "
+                       "Lingkar dalam adalah region, tengah segmen, dan luar jenis kontrak. "
+                       "Klik irisan untuk memperbesar cabang tersebut.",
+                       className="px-2 pb-2 text-sm leading-6 text-slate-300"),
+            ]),
+            panel(gauge),
+        ]),
     ]),
 ])
 
